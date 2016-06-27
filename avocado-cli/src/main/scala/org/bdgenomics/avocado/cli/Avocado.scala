@@ -204,8 +204,32 @@ class Avocado(protected val args: AvocadoArgs) extends BDGSparkCommand[AvocadoAr
 
     log.info("Loading reads in from " + args.readInput)
     // load in reads from ADAM file
-    val reads: RDD[AlignmentRecord] = LoadReads.time {
+    
+  /**
+      * add RecordGroupSample when the sam/bam no recordGroup information,
+      * which result in error :  java.lang.NullPointerException of getRecordGroupSample in
+      * val sample: String = read.getRecordGroupSample.toString (ReadExplorer.scala:54)
+      */
+    val readsTmp: RDD[AlignmentRecord] = LoadReads.time {
       Input(sc, args.readInput, reference, config)
+    }
+    val reads = readsTmp.map { each =>
+      if (each.getRecordGroupSample == null) {
+        each.setRecordGroupSample("sample")
+      }
+      if (each.getRecordGroupName == null) {
+        each.setRecordGroupName("read_group_id")
+      }
+      if (each.getRecordGroupPlatform == null) {
+        each.setRecordGroupPlatform("illumina")
+      }
+      if (each.getRecordGroupPlatformUnit == null) {
+        each.setRecordGroupPlatformUnit("platform_unit")
+      }
+      if (each.getRecordGroupLibrary == null) {
+        each.setRecordGroupLibrary("library")
+      }
+      each
     }
 
     // create stats/config item
